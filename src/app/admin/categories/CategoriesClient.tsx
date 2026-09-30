@@ -3,9 +3,9 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, CheckCircle2, FolderTree, X } from 'lucide-react';
 import { Category } from '@/types/database';
-import { Repository } from '@/lib/data/repository';
 import { slugify } from '@/lib/utils';
 import { useToast } from '@/components/Toast';
+import { createCategoryAction, updateCategoryAction, deleteCategoryAction } from '../actions';
 
 interface CategoriesClientProps {
   initialCategories: Category[];
@@ -55,7 +55,7 @@ export function CategoriesClient({ initialCategories }: CategoriesClientProps) {
     setLoading(true);
     try {
       if (editingId) {
-        const updated = await Repository.updateCategory(editingId, {
+        const updated = await updateCategoryAction(editingId, {
           name: name.trim(),
           slug: slug.trim() || slugify(name),
           description: description.trim() || null,
@@ -66,7 +66,7 @@ export function CategoriesClient({ initialCategories }: CategoriesClientProps) {
         setCategories(categories.map((c) => (c.id === editingId ? updated : c)));
         showToast(`Category "${name}" updated.`);
       } else {
-        const created = await Repository.createCategory({
+        const created = await createCategoryAction({
           name: name.trim(),
           slug: slug.trim() || slugify(name),
           description: description.trim() || null,
@@ -88,7 +88,7 @@ export function CategoriesClient({ initialCategories }: CategoriesClientProps) {
   const handleDelete = async (id: string, catName: string) => {
     if (!confirm(`Are you sure you want to remove category "${catName}"?`)) return;
     try {
-      await Repository.deleteCategory(id);
+      await deleteCategoryAction(id);
       setCategories(categories.filter((c) => c.id !== id));
       showToast(`Category "${catName}" removed.`);
     } catch (err: any) {

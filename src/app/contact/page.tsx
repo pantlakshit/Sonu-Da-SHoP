@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { MapPin, Phone, MessageSquare, Clock, ExternalLink, Navigation } from 'lucide-react';
 import { Repository } from '@/lib/data/repository';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
-  title: 'Visit Showroom & Contact — Berinag Tiles',
-  description: 'Visit the Berinag Tiles physical showroom in Main Market, Berinag, Uttarakhand. Phone, WhatsApp, and Google Maps directions.',
+  title: 'Visit Showroom & Contact — Karki Tiles',
+  description: 'Visit the Karki Tiles physical showroom in Uttarakhand. Phone, WhatsApp, and Google Maps directions.',
 };
 
 export default async function ContactPage() {

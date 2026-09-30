@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronRight, Save, Send, ArrowLeft, Trash2, ExternalLink } from 'lucide-react';
 import { Category, Product, ProductAvailability, ProductStatus } from '@/types/database';
-import { Repository } from '@/lib/data/repository';
+import { getCategoriesAction } from '@/app/admin/actions';
 import { ProductImageManager, ManagedImage } from '@/components/admin/ProductImageManager';
 import { useToast } from '@/components/Toast';
 
@@ -90,15 +90,27 @@ export function EditProductClient({
         featured,
       };
 
+      const formData = new FormData();
+      formData.append('productData', JSON.stringify(updateData));
+
       const formattedImages = images.map((img, idx) => ({
-        id: img.id.startsWith('temp-') ? undefined : img.id,
-        url: img.url,
+        id: img.id.startsWith('temp-') ? img.id : img.id,
+        url: img.id.startsWith('temp-') ? '' : img.url,
         altText: img.altText || name,
         sortOrder: idx + 1,
         isPrimary: img.isPrimary,
       }));
 
-      await Repository.updateProduct(initialProduct.id, updateData, formattedImages);
+      formData.append('imagesData', JSON.stringify(formattedImages));
+
+      images.forEach((img) => {
+        if (img.id.startsWith('temp-') && img.file) {
+          formData.append(`file_${img.id}`, img.file);
+        }
+      });
+
+      const { saveProductAction } = await import('@/app/admin/actions');
+      await saveProductAction(formData, false, initialProduct.id);
 
       showToast(`Updated "${name}" successfully! Changes are live on the showroom catalogue.`);
       router.push('/admin/products');

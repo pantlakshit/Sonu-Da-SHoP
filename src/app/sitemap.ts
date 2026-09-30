@@ -1,13 +1,10 @@
 import { MetadataRoute } from 'next';
-import { Repository } from '@/lib/data/repository';
+
+// Sitemap is dynamic since product slugs come from the database
+export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://berinagtiles.com';
-
-  const [products, categories] = await Promise.all([
-    Repository.getPublishedProducts(),
-    Repository.getActiveCategories(),
-  ]);
+  const baseUrl = 'https://karkitiles.com';
 
   const staticRoutes: MetadataRoute.Sitemap = [
     {
@@ -36,19 +33,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  const productRoutes: MetadataRoute.Sitemap = products.map((product) => ({
-    url: `${baseUrl}/tiles/${product.slug}`,
-    lastModified: new Date(product.updated_at || product.created_at),
-    changeFrequency: 'weekly',
-    priority: 0.8,
-  }));
+  // Attempt to fetch dynamic product & category routes at request time
+  try {
+    const { Repository } = await import('@/lib/data/repository');
+    const [products, categories] = await Promise.all([
+      Repository.getPublishedProducts(),
+      Repository.getActiveCategories(),
+    ]);
 
-  const categoryRoutes: MetadataRoute.Sitemap = categories.map((cat) => ({
-    url: `${baseUrl}/tiles?category=${cat.slug}`,
-    lastModified: new Date(cat.updated_at || cat.created_at),
-    changeFrequency: 'weekly',
-    priority: 0.7,
-  }));
+    const productRoutes: MetadataRoute.Sitemap = products.map((product) => ({
+      url: `${baseUrl}/tiles/${product.slug}`,
+      lastModified: new Date(product.updated_at || product.created_at),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    }));
 
-  return [...staticRoutes, ...productRoutes, ...categoryRoutes];
+    const categoryRoutes: MetadataRoute.Sitemap = categories.map((cat) => ({
+      url: `${baseUrl}/tiles?category=${cat.slug}`,
+      lastModified: new Date(cat.updated_at || cat.created_at),
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    }));
+
+    return [...staticRoutes, ...productRoutes, ...categoryRoutes];
+  } catch {
+    // Database not available (e.g. build time) — return static routes only
+    return staticRoutes;
+  }
 }

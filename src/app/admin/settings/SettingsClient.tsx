@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { Save, Store, Phone, MessageSquare, MapPin, Clock, Globe, Image as ImageIcon } from 'lucide-react';
 import { ShopSettings } from '@/types/database';
-import { Repository } from '@/lib/data/repository';
 import { useToast } from '@/components/Toast';
+import { updateSettingsAction } from '../actions';
 
 interface SettingsClientProps {
   initialSettings: ShopSettings;
@@ -20,7 +20,7 @@ export function SettingsClient({ initialSettings }: SettingsClientProps) {
     setLoading(true);
 
     try {
-      const updated = await Repository.updateShopSettings(settings);
+      const updated = await updateSettingsAction(settings);
       setSettings(updated);
       showToast('Showroom settings updated successfully! Public website reflects new details.');
     } catch (err: any) {

@@ -47,7 +47,7 @@ export function generateWhatsAppUrl(
   priceUnit: string
 ): string {
   const cleanPhone = phone.replace(/[^0-9]/g, '');
-  const message = `Hello Berinag Tiles,
+  const message = `Hello Karki Tiles,
 
 I am interested in:
 *${productName}*

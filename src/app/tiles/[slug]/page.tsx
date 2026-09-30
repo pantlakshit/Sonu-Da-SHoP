@@ -28,13 +28,13 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const product = await Repository.getProductBySlug(params.slug);
-  if (!product) return { title: 'Design Not Found — Berinag Tiles' };
+  if (!product || product.status === 'draft') return { title: 'Design Not Found — Karki Tiles' };
 
   return {
-    title: `${product.name} (Ref: ${product.reference_code}) — Berinag Tiles Showroom`,
-    description: `Explore ${product.name} [Ref: ${product.reference_code}] priced at ₹${product.price}/${product.price_unit}. Inspect physical samples at our Berinag showroom.`,
+    title: `${product.name} (Ref: ${product.reference_code}) — Karki Tiles Showroom`,
+    description: `Explore ${product.name} [Ref: ${product.reference_code}] priced at ₹${product.price}/${product.price_unit}. Inspect physical samples at our Karki showroom.`,
     openGraph: {
-      title: `${product.name} | Berinag Tiles`,
+      title: `${product.name} | Karki Tiles`,
       description: product.description || undefined,
       images: product.images?.[0]?.image_url ? [{ url: product.images[0].image_url }] : [],
     },
@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductDetailPage({ params }: Props) {
   const product = await Repository.getProductBySlug(params.slug);
-  if (!product) {
+  if (!product || product.status === 'draft') {
     notFound();
   }
 

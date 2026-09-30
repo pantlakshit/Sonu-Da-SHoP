@@ -6,7 +6,7 @@ import { CatalogueClient } from './CatalogueClient';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Complete Tile Catalogue — Berinag Digital Showroom',
+  title: 'Complete Tile Catalogue — Karki Digital Showroom',
   description: 'Explore our complete architectural collection of vitrified tiles, marble slabs, wooden planks, and outdoor stone paving.',
 };
 

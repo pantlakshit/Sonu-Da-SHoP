@@ -61,7 +61,7 @@ export function ProductImageManager({
       setPreviewItem({
         result: optimized,
         tag: defaultTag,
-        altText: `${defaultTag} - Berinag Tiles`,
+        altText: `${defaultTag} - Karki Tiles`,
       });
     } catch (err: any) {
       setErrorMsg(err.message || 'Could not process the selected image.');

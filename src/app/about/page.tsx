@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { MapPin, Phone, MessageSquare, ShieldCheck, Sparkles, Building2, CheckCircle2 } from 'lucide-react';
 import { Repository } from '@/lib/data/repository';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
-  title: 'About Our Showroom — Berinag Tiles',
-  description: 'Learn about Berinag Tiles, our physical material showroom, and our commitment to bringing world-class architectural tiles to Uttarakhand.',
+  title: 'About Our Showroom — Karki Tiles',
+  description: 'Learn about Karki Tiles, our physical material showroom, and our commitment to bringing world-class architectural tiles to Uttarakhand.',
 };
 
 export default async function AboutPage() {
@@ -23,7 +25,7 @@ export default async function AboutPage() {
           Architectural Material Standards in the Hills of Berinag.
         </h1>
         <p className="font-body text-body-lg text-on-surface-variant leading-relaxed">
-          Berinag Tiles was founded to solve a simple problem: homeowners, architects, and builders in Kumaon should have direct access to India&apos;s finest vitrified slabs, Italian marble reproductions, and heavy-duty stone surfaces without traveling to distant metropolitan centres.
+          Karki Tiles was founded to solve a simple problem: homeowners, architects, and builders in Kumaon should have direct access to India&apos;s finest vitrified slabs, Italian marble reproductions, and heavy-duty stone surfaces without traveling to distant metropolitan centres.
         </p>
       </section>
 

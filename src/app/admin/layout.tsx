@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { logOutAction } from '@/app/admin/actions';
 import {
   LayoutDashboard,
   Grid,
@@ -67,7 +68,7 @@ export default function AdminLayout({
           </div>
           <div className="overflow-hidden">
             <h2 className="font-headline text-lg font-bold text-primary truncate">Showroom CMS</h2>
-            <p className="font-body text-xs text-on-surface-variant truncate">Berinag Branch</p>
+            <p className="font-body text-xs text-on-surface-variant truncate">Karki Branch</p>
           </div>
         </div>
 
@@ -105,8 +106,8 @@ export default function AdminLayout({
           </Link>
 
           <button
-            onClick={() => {
-              document.cookie = 'berinag_admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+            onClick={async () => {
+              await logOutAction();
               router.push('/admin/login');
               router.refresh();
             }}
@@ -122,7 +123,7 @@ export default function AdminLayout({
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-surface-container-low border-b border-outline-variant px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-5 h-5 text-primary" />
-          <span className="font-headline font-bold text-sm">BERINAG CMS</span>
+          <span className="font-headline font-bold text-sm">KARKI CMS</span>
         </div>
         <div className="flex items-center gap-2">
           <Link

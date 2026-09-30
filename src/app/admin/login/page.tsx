@@ -5,29 +5,41 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ShieldCheck, ArrowRight, Lock, Mail } from 'lucide-react';
 import { useToast } from '@/components/Toast';
+import { signInAction } from '../actions';
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
-  const [email, setEmail] = useState('owner@berinagtiles.com');
-  const [password, setPassword] = useState('berinag2024');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const redirectUrl = searchParams.get('redirect') || '/admin';
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Set secure cookie for middleware protection
-    document.cookie = 'berinag_admin_session=active; path=/; max-age=604800; SameSite=Lax';
-
-    setTimeout(() => {
-      showToast('Authenticated successfully as Showroom Admin.');
-      router.push(redirectUrl);
-      router.refresh();
-    }, 400);
+    try {
+      const formData = new FormData();
+      formData.append('email', email);
+      formData.append('password', password);
+      
+      const res = await signInAction(formData);
+      
+      if (res.error) {
+        showToast(res.error, 'error');
+      } else if (res.success) {
+        showToast('Authenticated successfully as Showroom Admin.');
+        router.push(redirectUrl);
+        router.refresh();
+      }
+    } catch (err) {
+      showToast('An unexpected error occurred.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,7 +72,7 @@ export default function AdminLoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 rounded-lg border border-outline-variant bg-surface text-body-md text-on-surface focus:border-primary focus:ring-0"
-                placeholder="owner@berinagtiles.com"
+                placeholder="owner@karkitiles.com"
               />
             </div>
           </div>
@@ -91,12 +103,6 @@ export default function AdminLoginPage() {
             {!loading && <ArrowRight className="w-4 h-4" />}
           </button>
         </form>
-
-        {/* HELPER BOX */}
-        <div className="p-4 bg-surface-container-low border border-outline-variant rounded-xl text-xs text-on-surface-variant space-y-1">
-          <div className="font-semibold text-primary">Showroom Staff Access:</div>
-          <div>Pre-filled with demo credentials for instant CMS review and catalogue management.</div>
-        </div>
 
         <div className="text-center pt-2">
           <Link

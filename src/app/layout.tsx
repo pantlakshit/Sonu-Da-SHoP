@@ -18,11 +18,11 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "BERINAG TILES — Premium Architectural Digital Showroom",
+  title: "KARKI TILES — Premium Architectural Digital Showroom",
   description:
     "Explore curated tile designs, marble slabs, wooden planks and building materials before visiting our physical showroom in Berinag, Uttarakhand.",
   openGraph: {
-    title: "BERINAG TILES — Premium Architectural Digital Showroom",
+    title: "KARKI TILES — Premium Architectural Digital Showroom",
     description:
       "Find a design you love. See it online. Feel it in our showroom in Berinag, Uttarakhand.",
     type: "website",

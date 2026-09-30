@@ -1,201 +1,72 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { query, getBlobsStore, getClient } from './db';
 import { Category, FilterState, Product, ProductImage, ShopSettings } from '@/types/database';
 import { INITIAL_CATEGORIES, INITIAL_PRODUCTS, INITIAL_SHOP_SETTINGS } from './initial-seed';
 import { slugify } from '../utils';
 
-// Check if Supabase environment is configured
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
-
-const supabase = isSupabaseConfigured
-  ? createSupabaseClient(supabaseUrl!, supabaseAnonKey!)
-  : null;
-
-// Local store for development/bootstrap resilience
-let memoryProducts: Product[] = [...INITIAL_PRODUCTS];
-let memoryCategories: Category[] = [...INITIAL_CATEGORIES];
-let memorySettings: ShopSettings = { ...INITIAL_SHOP_SETTINGS };
-
-function getStoredProducts(): Product[] {
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('berinag_products');
-    if (saved) {
-      try {
-        memoryProducts = JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse stored products', e);
-      }
-    }
-  }
-  return memoryProducts;
-}
-
-function saveProductsToStorage(products: Product[]) {
-  memoryProducts = products;
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('berinag_products', JSON.stringify(products));
-  }
-}
-
-function getStoredCategories(): Category[] {
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('berinag_categories');
-    if (saved) {
-      try {
-        memoryCategories = JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse stored categories', e);
-      }
-    }
-  }
-  return memoryCategories;
-}
-
-function saveCategoriesToStorage(cats: Category[]) {
-  memoryCategories = cats;
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('berinag_categories', JSON.stringify(cats));
-  }
-}
-
-function getStoredSettings(): ShopSettings {
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('berinag_settings');
-    if (saved) {
-      try {
-        memorySettings = JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse stored settings', e);
-      }
-    }
-  }
-  return memorySettings;
-}
-
-function saveSettingsToStorage(settings: ShopSettings) {
-  memorySettings = settings;
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('berinag_settings', JSON.stringify(settings));
-  }
-}
+// We'll rely on real PostgreSQL sequences and UUIDs now.
+// For initial seed fallback when table is empty, we can just insert them.
 
 export const Repository = {
   // 1. PRODUCTS
   async getProducts(filters?: FilterState): Promise<Product[]> {
-    if (supabase) {
-      let query = supabase
-        .from('products')
-        .select(`
-          *,
-          category:categories(*),
-          images:product_images(*)
-        `);
+    let sql = `
+      SELECT p.*,
+             row_to_json(c.*) as category,
+             COALESCE(
+               (SELECT json_agg(pi ORDER BY pi.sort_order)
+                FROM product_images pi WHERE pi.product_id = p.id), '[]'::json
+             ) as images
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+    let paramIndex = 1;
 
-      if (filters?.category) {
-        query = query.eq('category_id', filters.category);
-      }
-      if (filters?.availability) {
-        query = query.eq('availability', filters.availability);
-      }
-
-      const { data, error } = await query;
-      if (error) {
-        console.error('Supabase query error:', error);
-        throw new Error(`Database error: ${error.message}`);
-      }
-
-      let list: Product[] = (data || []).map((p: any) => ({
-        ...p,
-        images: (p.images || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
-      }));
-
-      // Apply in-memory search/look/finish filters if not matched by exact query
-      if (filters?.look && filters.look.length > 0) {
-        list = list.filter((p) => p.look && filters.look?.includes(p.look));
-      }
-      if (filters?.finish && filters.finish.length > 0) {
-        list = list.filter((p) => p.finish && filters.finish?.includes(p.finish));
-      }
-      if (filters?.search && filters.search.trim()) {
-        const q = filters.search.toLowerCase().trim();
-        list = list.filter((p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.reference_code.toLowerCase().includes(q) ||
-          (p.brand && p.brand.toLowerCase().includes(q)) ||
-          (p.color && p.color.toLowerCase().includes(q)) ||
-          (p.look && p.look.toLowerCase().includes(q)) ||
-          (p.finish && p.finish.toLowerCase().includes(q))
-        );
-      }
-
-      // Sort
-      if (filters?.sortBy === 'price_asc') {
-        list.sort((a, b) => a.price - b.price);
-      } else if (filters?.sortBy === 'price_desc') {
-        list.sort((a, b) => b.price - a.price);
-      } else if (filters?.sortBy === 'name_asc') {
-        list.sort((a, b) => a.name.localeCompare(b.name));
-      } else {
-        list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      }
-
-      return list;
+    if (filters?.category && filters.category !== 'all') {
+      sql += ` AND p.category_id = $${paramIndex++}`;
+      params.push(filters.category);
     }
-
-    // Local Store Flow
-    let list = [...getStoredProducts()];
-    const categories = getStoredCategories();
-
-    list = list.map((p) => ({
-      ...p,
-      category: categories.find((c) => c.id === p.category_id),
-      images: (p.images || []).sort((a, b) => a.sort_order - b.sort_order),
-    }));
-
-    if (!filters) return list;
-
-    if (filters.category) {
-      const cat = categories.find((c) => c.slug === filters.category || c.id === filters.category);
-      if (cat) {
-        list = list.filter((p) => p.category_id === cat.id);
-      }
+    if (filters?.availability && filters.availability !== 'all') {
+      sql += ` AND p.availability = $${paramIndex++}`;
+      params.push(filters.availability);
     }
+    
+    // The exact query matching logic can go here. For now we will fetch and filter in memory if complex, or just use basic SQL.
+    const rows = await query(sql, params);
+    
+    let list = rows.map(row => ({
+      ...row,
+      images: row.images || []
+    })) as Product[];
 
-    if (filters.look && filters.look.length > 0) {
+    // In-memory filters for complex/array searches
+    if (filters?.look && filters.look.length > 0) {
       list = list.filter((p) => p.look && filters.look?.includes(p.look));
     }
-
-    if (filters.finish && filters.finish.length > 0) {
+    if (filters?.finish && filters.finish.length > 0) {
       list = list.filter((p) => p.finish && filters.finish?.includes(p.finish));
     }
-
-    if (filters.availability) {
-      list = list.filter((p) => p.availability === filters.availability);
-    }
-
-    if (filters.search && filters.search.trim()) {
+    if (filters?.search && filters.search.trim()) {
       const q = filters.search.toLowerCase().trim();
-      list = list.filter((p) => {
-        return (
-          p.name.toLowerCase().includes(q) ||
-          p.reference_code.toLowerCase().includes(q) ||
-          (p.brand && p.brand.toLowerCase().includes(q)) ||
-          (p.color && p.color.toLowerCase().includes(q)) ||
-          (p.look && p.look.toLowerCase().includes(q)) ||
-          (p.finish && p.finish.toLowerCase().includes(q)) ||
-          (p.size && p.size.toLowerCase().includes(q)) ||
-          (p.material && p.material.toLowerCase().includes(q)) ||
-          (p.space && p.space.toLowerCase().includes(q))
-        );
-      });
+      list = list.filter((p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.reference_code.toLowerCase().includes(q) ||
+        (p.brand && p.brand.toLowerCase().includes(q)) ||
+        (p.color && p.color.toLowerCase().includes(q)) ||
+        (p.look && p.look.toLowerCase().includes(q)) ||
+        (p.finish && p.finish.toLowerCase().includes(q)) ||
+        (p.size && p.size.toLowerCase().includes(q)) ||
+        (p.material && p.material.toLowerCase().includes(q)) ||
+        (p.space && p.space.toLowerCase().includes(q))
+      );
     }
 
-    if (filters.sortBy === 'price_asc') {
+    if (filters?.sortBy === 'price_asc') {
       list.sort((a, b) => a.price - b.price);
-    } else if (filters.sortBy === 'price_desc') {
+    } else if (filters?.sortBy === 'price_desc') {
       list.sort((a, b) => b.price - a.price);
-    } else if (filters.sortBy === 'name_asc') {
+    } else if (filters?.sortBy === 'name_asc') {
       list.sort((a, b) => a.name.localeCompare(b.name));
     } else {
       list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -215,59 +86,37 @@ export const Repository = {
   },
 
   async getProductBySlug(slug: string): Promise<Product | null> {
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-          *,
-          category:categories(*),
-          images:product_images(*)
-        `)
-        .eq('slug', slug)
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') return null; // Not found
-        throw new Error(`Database error: ${error.message}`);
-      }
-
-      return {
-        ...data,
-        images: (data.images || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
-      };
-    }
-
-    const list = await this.getProducts();
-    const product = list.find((p) => p.slug === slug);
-    return product || null;
+    const rows = await query(`
+      SELECT p.*,
+             row_to_json(c.*) as category,
+             COALESCE(
+               (SELECT json_agg(pi ORDER BY pi.sort_order)
+                FROM product_images pi WHERE pi.product_id = p.id), '[]'::json
+             ) as images
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.slug = $1
+    `, [slug]);
+    
+    if (rows.length === 0) return null;
+    return rows[0];
   },
 
   async getProductById(id: string): Promise<Product | null> {
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-          *,
-          category:categories(*),
-          images:product_images(*)
-        `)
-        .eq('id', id)
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') return null;
-        throw new Error(`Database error: ${error.message}`);
-      }
-
-      return {
-        ...data,
-        images: (data.images || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
-      };
-    }
-
-    const list = await this.getProducts();
-    const product = list.find((p) => p.id === id);
-    return product || null;
+    const rows = await query(`
+      SELECT p.*,
+             row_to_json(c.*) as category,
+             COALESCE(
+               (SELECT json_agg(pi ORDER BY pi.sort_order)
+                FROM product_images pi WHERE pi.product_id = p.id), '[]'::json
+             ) as images
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.id = $1
+    `, [id]);
+    
+    if (rows.length === 0) return null;
+    return rows[0];
   },
 
   async getRelatedProducts(currentProduct: Product, limit = 4): Promise<Product[]> {
@@ -285,181 +134,100 @@ export const Repository = {
 
   async createProduct(
     data: Omit<Product, 'id' | 'created_at' | 'updated_at'>,
-    images: { url: string; altText: string; sortOrder: number; isPrimary: boolean }[] = []
+    images: { url: string; altText: string; sortOrder: number; isPrimary: boolean; storagePath?: string }[] = []
   ): Promise<Product> {
-    if (supabase) {
-      // 1. Insert product
-      const { data: insertedProduct, error: prodError } = await supabase
-        .from('products')
-        .insert({
-          name: data.name,
-          slug: data.slug,
-          reference_code: data.reference_code.toUpperCase().trim(),
-          brand: data.brand,
-          category_id: data.category_id,
-          price: data.price,
-          price_unit: data.price_unit,
-          size: data.size,
-          thickness: data.thickness,
-          finish: data.finish,
-          color: data.color,
-          material: data.material,
-          look: data.look,
-          space: data.space,
-          description: data.description,
-          availability: data.availability,
-          status: data.status,
-          featured: data.featured,
-        })
-        .select()
-        .single();
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      
+      const pRes = await client.query(`
+        INSERT INTO products (
+          name, slug, reference_code, brand, category_id, price, price_unit,
+          size, thickness, finish, color, material, look, space, description,
+          availability, status, featured
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+        RETURNING id
+      `, [
+        data.name, data.slug, data.reference_code.toUpperCase().trim(), data.brand, data.category_id,
+        data.price, data.price_unit, data.size, data.thickness, data.finish,
+        data.color, data.material, data.look, data.space, data.description,
+        data.availability, data.status, data.featured
+      ]);
+      const productId = pRes.rows[0].id;
 
-      if (prodError) throw new Error(`Failed to create product: ${prodError.message}`);
-
-      // 2. Insert image records
       if (images.length > 0) {
-        const imageInserts = images.map((img, idx) => ({
-          product_id: insertedProduct.id,
-          image_url: img.url,
-          alt_text: img.altText || data.name,
-          sort_order: img.sortOrder || idx + 1,
-          is_primary: img.isPrimary ?? idx === 0,
-        }));
-
-        const { error: imgError } = await supabase.from('product_images').insert(imageInserts);
-        if (imgError) console.error('Error inserting images:', imgError);
+        for (let i = 0; i < images.length; i++) {
+          const img = images[i];
+          await client.query(`
+            INSERT INTO product_images (product_id, storage_path, image_url, alt_text, sort_order, is_primary)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `, [productId, img.storagePath || null, img.url, img.altText || data.name, img.sortOrder || i + 1, img.isPrimary ?? (i === 0)]);
+        }
       }
 
-      return this.getProductById(insertedProduct.id) as Promise<Product>;
+      await client.query('COMMIT');
+      return await this.getProductById(productId) as Product;
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
     }
-
-    // Local storage flow
-    const products = getStoredProducts();
-
-    if (products.some((p) => p.reference_code.toUpperCase() === data.reference_code.toUpperCase())) {
-      throw new Error(`Reference code "${data.reference_code}" is already in use.`);
-    }
-
-    let baseSlug = data.slug || slugify(data.name);
-    let finalSlug = baseSlug;
-    let counter = 1;
-    while (products.some((p) => p.slug === finalSlug)) {
-      finalSlug = `${baseSlug}-${counter}`;
-      counter++;
-    }
-
-    const newId = 'prod-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
-    const now = new Date().toISOString();
-
-    const formattedImages: ProductImage[] = images.map((img, idx) => ({
-      id: 'img-' + Date.now() + '-' + idx,
-      product_id: newId,
-      storage_path: null,
-      image_url: img.url,
-      alt_text: img.altText || data.name,
-      sort_order: img.sortOrder || idx + 1,
-      is_primary: img.isPrimary ?? idx === 0,
-      created_at: now,
-    }));
-
-    const newProduct: Product = {
-      ...data,
-      id: newId,
-      slug: finalSlug,
-      reference_code: data.reference_code.toUpperCase().trim(),
-      created_at: now,
-      updated_at: now,
-      images: formattedImages,
-    };
-
-    saveProductsToStorage([newProduct, ...products]);
-    return newProduct;
   },
 
   async updateProduct(
     id: string,
     data: Partial<Product>,
-    images?: { id?: string; url: string; altText: string; sortOrder: number; isPrimary: boolean }[]
+    images?: { id?: string; url: string; altText: string; sortOrder: number; isPrimary: boolean; storagePath?: string }[]
   ): Promise<Product> {
-    if (supabase) {
-      const { error: updateError } = await supabase
-        .from('products')
-        .update({
-          ...data,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
 
-      if (updateError) throw new Error(`Failed to update product: ${updateError.message}`);
-
-      if (images) {
-        // Delete old and re-insert images
-        await supabase.from('product_images').delete().eq('product_id', id);
-        const imageInserts = images.map((img, idx) => ({
-          product_id: id,
-          image_url: img.url,
-          alt_text: img.altText || data.name,
-          sort_order: img.sortOrder || idx + 1,
-          is_primary: img.isPrimary ?? idx === 0,
-        }));
-        await supabase.from('product_images').insert(imageInserts);
+      // Update product fields
+      const updates = [];
+      const values = [];
+      let i = 1;
+      for (const [key, val] of Object.entries(data)) {
+        if (key !== 'id' && key !== 'created_at' && key !== 'updated_at' && key !== 'images' && key !== 'category') {
+          updates.push(`${key} = $${i++}`);
+          values.push(val);
+        }
+      }
+      if (updates.length > 0) {
+        updates.push(`updated_at = NOW()`);
+        values.push(id);
+        await client.query(`UPDATE products SET ${updates.join(', ')} WHERE id = $${i}`, values);
       }
 
-      return this.getProductById(id) as Promise<Product>;
+      // Re-link images
+      if (images) {
+        await client.query('DELETE FROM product_images WHERE product_id = $1', [id]);
+        for (let j = 0; j < images.length; j++) {
+          const img = images[j];
+          await client.query(`
+            INSERT INTO product_images (product_id, storage_path, image_url, alt_text, sort_order, is_primary)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `, [id, img.storagePath || null, img.url, img.altText, img.sortOrder || j + 1, img.isPrimary ?? (j === 0)]);
+        }
+      }
+
+      await client.query('COMMIT');
+      return await this.getProductById(id) as Product;
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
     }
-
-    // Local storage flow
-    const products = getStoredProducts();
-    const index = products.findIndex((p) => p.id === id);
-    if (index === -1) {
-      throw new Error('Product not found.');
-    }
-
-    const existing = products[index];
-
-    if (
-      data.reference_code &&
-      data.reference_code.toUpperCase() !== existing.reference_code.toUpperCase() &&
-      products.some((p) => p.id !== id && p.reference_code.toUpperCase() === data.reference_code?.toUpperCase())
-    ) {
-      throw new Error(`Reference code "${data.reference_code}" is already in use.`);
-    }
-
-    const now = new Date().toISOString();
-    let updatedImages = existing.images || [];
-
-    if (images) {
-      updatedImages = images.map((img, idx) => ({
-        id: img.id || 'img-' + Date.now() + '-' + idx,
-        product_id: id,
-        storage_path: null,
-        image_url: img.url,
-        alt_text: img.altText || existing.name,
-        sort_order: img.sortOrder || idx + 1,
-        is_primary: img.isPrimary ?? idx === 0,
-        created_at: now,
-      }));
-    }
-
-    const updatedProduct: Product = {
-      ...existing,
-      ...data,
-      reference_code: (data.reference_code || existing.reference_code).toUpperCase().trim(),
-      images: updatedImages,
-      updated_at: now,
-    };
-
-    products[index] = updatedProduct;
-    saveProductsToStorage([...products]);
-    return updatedProduct;
   },
 
   async duplicateProduct(id: string): Promise<Product> {
     const product = await this.getProductById(id);
     if (!product) throw new Error('Product not found for duplication.');
 
-    const copySuffix = '-copy-' + Math.random().toString(36).substr(2, 4);
-    const newRefCode = product.reference_code + '-COPY';
+    const copySuffix = '-copy-' + Math.random().toString(36).substring(2, 6);
+    const newRefCode = product.reference_code + copySuffix.toUpperCase();
 
     const duplicateData: Omit<Product, 'id' | 'created_at' | 'updated_at'> = {
       name: `${product.name} (Copy)`,
@@ -487,142 +255,100 @@ export const Repository = {
       altText: img.alt_text || '',
       sortOrder: img.sort_order,
       isPrimary: img.is_primary,
+      storagePath: img.storage_path || undefined
     }));
 
     return this.createProduct(duplicateData, duplicateImages);
   },
 
   async deleteProduct(id: string): Promise<boolean> {
-    if (supabase) {
-      const { error } = await supabase.from('products').delete().eq('id', id);
-      if (error) throw new Error(`Failed to delete product: ${error.message}`);
-      return true;
+    const product = await this.getProductById(id);
+    if (product && product.images && product.images.length > 0) {
+      try {
+        const store = await getBlobsStore();
+        for (const img of product.images) {
+          if (img.storage_path) {
+            await store.delete(img.storage_path);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to clean up blobs on product deletion:', err);
+      }
     }
-
-    const products = getStoredProducts();
-    const filtered = products.filter((p) => p.id !== id);
-    saveProductsToStorage(filtered);
+    await query('DELETE FROM products WHERE id = $1', [id]);
     return true;
   },
 
   // 2. CATEGORIES
   async getCategories(): Promise<Category[]> {
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('sort_order', { ascending: true });
-
-      if (error) throw new Error(`Failed to load categories: ${error.message}`);
-      return data || [];
-    }
-
-    const cats = getStoredCategories();
-    return cats.sort((a, b) => a.sort_order - b.sort_order);
+    const rows = await query('SELECT * FROM categories ORDER BY sort_order ASC');
+    return rows;
   },
 
   async getActiveCategories(): Promise<Category[]> {
-    const cats = await this.getCategories();
-    return cats.filter((c) => c.active);
+    const rows = await query('SELECT * FROM categories WHERE active = true ORDER BY sort_order ASC');
+    return rows;
   },
 
   async createCategory(data: Omit<Category, 'id' | 'created_at' | 'updated_at'>): Promise<Category> {
-    if (supabase) {
-      const { data: created, error } = await supabase
-        .from('categories')
-        .insert(data)
-        .select()
-        .single();
-
-      if (error) throw new Error(`Failed to create category: ${error.message}`);
-      return created;
-    }
-
-    const cats = getStoredCategories();
-    const newCategory: Category = {
-      ...data,
-      id: 'cat-' + Date.now(),
-      slug: data.slug || slugify(data.name),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    saveCategoriesToStorage([...cats, newCategory]);
-    return newCategory;
+    const res = await query(`
+      INSERT INTO categories (name, slug, description, image_url, active, sort_order)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [data.name, data.slug, data.description, data.image_url, data.active, data.sort_order]);
+    return res[0];
   },
 
   async updateCategory(id: string, data: Partial<Category>): Promise<Category> {
-    if (supabase) {
-      const { data: updated, error } = await supabase
-        .from('categories')
-        .update(data)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw new Error(`Failed to update category: ${error.message}`);
-      return updated;
+    const updates = [];
+    const values = [];
+    let i = 1;
+    for (const [key, val] of Object.entries(data)) {
+      if (key !== 'id' && key !== 'created_at' && key !== 'updated_at') {
+        updates.push(`${key} = $${i++}`);
+        values.push(val);
+      }
     }
-
-    const cats = getStoredCategories();
-    const idx = cats.findIndex((c) => c.id === id);
-    if (idx === -1) throw new Error('Category not found.');
-    const updated = {
-      ...cats[idx],
-      ...data,
-      updated_at: new Date().toISOString(),
-    };
-    cats[idx] = updated;
-    saveCategoriesToStorage([...cats]);
-    return updated;
+    updates.push(`updated_at = NOW()`);
+    values.push(id);
+    const res = await query(`UPDATE categories SET ${updates.join(', ')} WHERE id = $${i} RETURNING *`, values);
+    return res[0];
   },
 
   async deleteCategory(id: string): Promise<boolean> {
-    if (supabase) {
-      const { error } = await supabase.from('categories').delete().eq('id', id);
-      if (error) throw new Error(`Failed to delete category: ${error.message}`);
-      return true;
-    }
-
-    const cats = getStoredCategories();
-    saveCategoriesToStorage(cats.filter((c) => c.id !== id));
+    await query('DELETE FROM categories WHERE id = $1', [id]);
     return true;
   },
 
   // 3. SHOP SETTINGS
   async getShopSettings(): Promise<ShopSettings> {
-    if (supabase) {
-      const { data, error } = await supabase.from('shop_settings').select('*').single();
-      if (error) {
-        if (error.code === 'PGRST116') return INITIAL_SHOP_SETTINGS;
-        throw new Error(`Failed to load shop settings: ${error.message}`);
-      }
-      return data || INITIAL_SHOP_SETTINGS;
+    const rows = await query('SELECT * FROM shop_settings LIMIT 1');
+    if (rows.length === 0) {
+      return INITIAL_SHOP_SETTINGS;
     }
-
-    return getStoredSettings();
+    return rows[0];
   },
 
   async updateShopSettings(data: Partial<ShopSettings>): Promise<ShopSettings> {
-    if (supabase) {
-      const current = await this.getShopSettings();
-      const { data: updated, error } = await supabase
-        .from('shop_settings')
-        .update(data)
-        .eq('id', current.id)
-        .select()
-        .single();
-
-      if (error) throw new Error(`Failed to update settings: ${error.message}`);
-      return updated;
+    const rows = await query('SELECT id FROM shop_settings LIMIT 1');
+    if (rows.length === 0) {
+      throw new Error('No settings row found');
     }
-
-    const current = getStoredSettings();
-    const updated = {
-      ...current,
-      ...data,
-      updated_at: new Date().toISOString(),
-    };
-    saveSettingsToStorage(updated);
-    return updated;
-  },
+    const id = rows[0].id;
+    
+    const updates = [];
+    const values = [];
+    let i = 1;
+    for (const [key, val] of Object.entries(data)) {
+      if (key !== 'id' && key !== 'created_at' && key !== 'updated_at') {
+        updates.push(`${key} = $${i++}`);
+        values.push(val);
+      }
+    }
+    updates.push(`updated_at = NOW()`);
+    values.push(id);
+    
+    const res = await query(`UPDATE shop_settings SET ${updates.join(', ')} WHERE id = $${i} RETURNING *`, values);
+    return res[0];
+  }
 };

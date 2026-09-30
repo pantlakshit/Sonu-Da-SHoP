@@ -22,7 +22,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
     const shareData = {
       title: `${product.name} (Ref: ${product.reference_code})`,
-      text: `Check out ${product.name} [Ref: ${product.reference_code}] at Berinag Tiles Digital Showroom.`,
+      text: `Check out ${product.name} [Ref: ${product.reference_code}] at Karki Tiles Digital Showroom.`,
       url: `${window.location.origin}/tiles/${product.slug}`,
     };
 

@@ -18,13 +18,13 @@ export function Footer() {
         {/* COL 1: BRAND */}
         <div className="flex flex-col gap-4">
           <div className="font-headline text-headline-md tracking-tighter text-primary">
-            BERINAG TILES
+            KARKI TILES
           </div>
           <p className="font-body text-body-md text-on-surface-variant max-w-sm">
             Discover curated tile designs, colours and architectural finishes digitally, then visit our showroom in Berinag to inspect and feel the real materials.
           </p>
           <p className="font-body text-sm text-secondary pt-2">
-            © {new Date().getFullYear()} Berinag Tiles Showroom. All rights reserved.
+            © {new Date().getFullYear()} Karki Tiles Showroom. All rights reserved.
           </p>
         </div>
 
@@ -66,7 +66,7 @@ export function Footer() {
               <span>Call Showroom: +91 94120 78456</span>
             </a>
             <a
-              href="https://wa.me/919412078456?text=Hello%20Berinag%20Tiles%2C%20I%20am%20interested%20in%20visiting%20your%20showroom."
+              href="https://wa.me/919412078456?text=Hello%20Karki%20Tiles%2C%20I%20am%20interested%20in%20visiting%20your%20showroom."
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2.5 text-on-surface-variant hover:text-primary transition-colors"
@@ -80,12 +80,7 @@ export function Footer() {
             >
               Browse Complete Digital Catalogue
             </Link>
-            <Link
-              href="/admin/login"
-              className="text-xs text-secondary hover:text-primary transition-colors pt-2"
-            >
-              Showroom Owner Access
-            </Link>
+
           </div>
         </div>
       </div>

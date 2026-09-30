@@ -39,7 +39,7 @@ export default async function AdminDashboardPage() {
         <div className="max-w-container-max mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
           <div>
             <h1 className="font-headline text-2xl sm:text-3xl md:text-headline-lg text-primary tracking-tight font-normal">
-              Good day, Berinag Team
+              Good day, Karki Team
             </h1>
             <p className="font-body text-body-md text-on-surface-variant mt-1">
               Live showroom inventory & digital catalogue management.

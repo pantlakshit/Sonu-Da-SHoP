@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -17,9 +17,9 @@ import {
   Camera,
 } from 'lucide-react';
 import { Category, Product } from '@/types/database';
-import { Repository } from '@/lib/data/repository';
 import { formatINR } from '@/lib/utils';
 import { useToast } from '@/components/Toast';
+import { duplicateProductAction, deleteProductAction } from '../actions';
 
 interface ProductsClientProps {
   initialProducts: Product[];
@@ -67,7 +67,7 @@ export function ProductsClient({
   const handleDuplicate = async (product: Product) => {
     setIsProcessing(true);
     try {
-      const duplicate = await Repository.duplicateProduct(product.id);
+      const duplicate = await duplicateProductAction(product.id);
       setProducts([duplicate, ...products]);
       showToast(`Duplicated as "${duplicate.name}" (Ref: ${duplicate.reference_code}).`);
     } catch (err: any) {
@@ -81,7 +81,7 @@ export function ProductsClient({
     if (!deleteTarget) return;
     setIsProcessing(true);
     try {
-      await Repository.deleteProduct(deleteTarget.id);
+      await deleteProductAction(deleteTarget.id);
       setProducts(products.filter((p) => p.id !== deleteTarget.id));
       showToast(`Deleted "${deleteTarget.name}".`);
       setDeleteTarget(null);

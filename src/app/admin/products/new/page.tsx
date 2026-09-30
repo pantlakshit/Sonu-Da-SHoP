@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronRight, Save, Send, ArrowLeft } from 'lucide-react';
 import { Category, ProductAvailability, ProductStatus } from '@/types/database';
-import { Repository } from '@/lib/data/repository';
+import { getCategoriesAction, getProductsAction } from '@/app/admin/actions';
 import { ProductImageManager, ManagedImage } from '@/components/admin/ProductImageManager';
 import { slugify, generateReferenceCode } from '@/lib/utils';
 import { useToast } from '@/components/Toast';
@@ -41,16 +41,16 @@ export default function AddProductPage() {
   const [images, setImages] = useState<ManagedImage[]>([]);
 
   useEffect(() => {
-    Repository.getCategories().then((cats) => {
+    getCategoriesAction().then((cats) => {
       setCategories(cats);
       if (cats.length > 0) {
         setCategoryId(cats[0].id);
       }
-    });
-    Repository.getProducts().then((prods) => {
+    }).catch(console.error);
+    getProductsAction().then((prods) => {
       const existingCodes = prods.map((p) => p.reference_code);
       setReferenceCode(generateReferenceCode('Tile', existingCodes));
-    });
+    }).catch(console.error);
   }, []);
 
   const handleSave = async (status: ProductStatus) => {
@@ -91,19 +91,33 @@ export default function AddProductPage() {
         featured,
       };
 
+      const formData = new FormData();
+      formData.append('productData', JSON.stringify(productData));
+
       const formattedImages = images.map((img, idx) => ({
-        url: img.url,
+        id: img.id,
+        url: img.id.startsWith('temp-') ? '' : img.url, // Don't send huge base64 strings in the JSON payload, we'll send it as a file if it's new
         altText: img.altText || name,
         sortOrder: idx + 1,
         isPrimary: img.isPrimary,
       }));
+      
+      formData.append('imagesData', JSON.stringify(formattedImages));
+      
+      // Append files for new images
+      images.forEach((img) => {
+        if (img.id.startsWith('temp-') && img.file) {
+          formData.append(`file_${img.id}`, img.file);
+        }
+      });
 
-      const created = await Repository.createProduct(productData, formattedImages);
+      const { saveProductAction } = await import('@/app/admin/actions');
+      const created = await saveProductAction(formData, true);
 
       showToast(
         status === 'published'
-          ? `"${created.name}" published to Digital Showroom!`
-          : `Draft for "${created.name}" saved.`
+          ? `"${created?.name || name}" published to Digital Showroom!`
+          : `Draft for "${created?.name || name}" saved.`
       );
 
       router.push('/admin/products');
@@ -113,6 +127,7 @@ export default function AddProductPage() {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="w-full min-h-screen pt-4 pb-32 px-4 sm:px-8 md:px-margin-desktop max-w-container-max mx-auto">

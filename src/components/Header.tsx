@@ -42,7 +42,7 @@ export function Header() {
             href="/"
             className="font-headline text-headline-md tracking-tighter text-primary flex items-center gap-2 group"
           >
-            <span className="font-bold">BERINAG TILES</span>
+            <span className="font-bold">KARKI TILES</span>
             <span className="text-[10px] font-label-caps tracking-widest text-secondary border border-outline-variant px-1.5 py-0.5 rounded hidden sm:inline-block">
               SHOWROOM
             </span>
@@ -79,21 +79,13 @@ export function Header() {
             </button>
 
             <Link
-              href="https://wa.me/919412078456?text=Hello%20Berinag%20Tiles%2C%20I%20would%20like%20to%20enquire%20about%20your%20collection."
+              href="https://wa.me/919000000000?text=Hello%20Karki%20Tiles%2C%20I%20would%20like%20to%20enquire%20about%20your%20collection."
               target="_blank"
               rel="noopener noreferrer"
               className="hidden lg:flex items-center gap-2 text-xs font-label-caps text-secondary hover:text-primary border border-outline-variant px-3 py-1.5 rounded-full transition-colors"
             >
               <MessageSquare className="w-3.5 h-3.5" />
               <span>WHATSAPP</span>
-            </Link>
-
-            <Link
-              href="/admin"
-              className="p-2 text-on-surface-variant hover:text-primary transition-colors text-xs font-label-caps"
-              title="Showroom Staff CMS"
-            >
-              <ShieldCheck className="w-5 h-5" />
             </Link>
 
             {/* Mobile menu button */}
@@ -142,7 +134,7 @@ export function Header() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-background flex flex-col pt-20 px-6 pb-8 md:hidden animate-in fade-in">
           <div className="flex justify-between items-center absolute top-4 left-6 right-6">
-            <span className="font-headline text-headline-md tracking-tighter">BERINAG TILES</span>
+            <span className="font-headline text-headline-md tracking-tighter">KARKI TILES</span>
             <button onClick={() => setMobileMenuOpen(false)} className="p-2">
               <X className="w-6 h-6" />
             </button>
@@ -159,14 +151,6 @@ export function Header() {
                 {link.label}
               </Link>
             ))}
-            <Link
-              href="/admin"
-              onClick={() => setMobileMenuOpen(false)}
-              className="border-b border-surface-variant pb-4 text-secondary flex items-center gap-2"
-            >
-              <ShieldCheck className="w-5 h-5" />
-              <span>Owner / Staff CMS</span>
-            </Link>
           </nav>
 
           <div className="mt-auto space-y-4 pt-8 border-t border-outline-variant">
