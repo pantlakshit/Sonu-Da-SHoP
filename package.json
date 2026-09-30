@@ -6,17 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
-    "@netlify/blobs": "^11.1.1",
-    "@netlify/database": "^2.0.1",
+    "@neondatabase/serverless": "^0.9.5",
+    "@vercel/blob": "^2.8.0",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "jose": "^6.2.12",
     "lucide-react": "^0.446.0",
     "next": "^14.2.15",
-    "pg": "^8.23.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "server-only": "^0.0.1",

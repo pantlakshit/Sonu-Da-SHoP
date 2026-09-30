@@ -150,8 +150,7 @@ export async function saveProductAction(formData: FormData, isNew: boolean, id?:
   
   // Handle files attached in FormData
   const processedImages = [];
-  const { getStore } = await import('@netlify/blobs');
-  const store = getStore('showroom-media');
+  const { put } = await import('@vercel/blob');
   
   for (let i = 0; i < rawImages.length; i++) {
     const imgInfo = rawImages[i];
@@ -161,16 +160,15 @@ export async function saveProductAction(formData: FormData, isNew: boolean, id?:
     if (imgInfo.id && imgInfo.id.startsWith('temp-')) {
       const file = formData.get(`file_${imgInfo.id}`) as File;
       if (file) {
-        const arrayBuffer = await file.arrayBuffer();
         const ext = file.type.split('/')[1] || 'jpg';
         const key = `img_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
         
-        await store.set(key, arrayBuffer, {
-          metadata: { type: file.type }
+        const blob = await put(key, file, {
+          access: 'public',
         });
         
-        storagePath = key;
-        url = `/api/media/${key}`; // We'll create this route
+        storagePath = blob.url; // Use Vercel blob URL as storage path
+        url = blob.url; // Direct URL
       }
     }
     

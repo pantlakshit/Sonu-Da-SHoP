@@ -1,4 +1,5 @@
-import { query, getBlobsStore, getClient } from './db';
+import { query, getClient } from './db';
+import { del } from '@vercel/blob';
 import { Category, FilterState, Product, ProductImage, ShopSettings } from '@/types/database';
 import { INITIAL_CATEGORIES, INITIAL_PRODUCTS, INITIAL_SHOP_SETTINGS } from './initial-seed';
 import { slugify } from '../utils';
@@ -265,11 +266,12 @@ export const Repository = {
     const product = await this.getProductById(id);
     if (product && product.images && product.images.length > 0) {
       try {
-        const store = await getBlobsStore();
-        for (const img of product.images) {
-          if (img.storage_path) {
-            await store.delete(img.storage_path);
-          }
+        const urlsToDelete = product.images
+          .map(img => img.storage_path || img.image_url) // Vercel blob urls are usually used as the delete key
+          .filter(Boolean);
+          
+        if (urlsToDelete.length > 0) {
+           await del(urlsToDelete);
         }
       } catch (err) {
         console.error('Failed to clean up blobs on product deletion:', err);
